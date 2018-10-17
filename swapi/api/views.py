@@ -33,9 +33,34 @@ def people_list_view(request):
         * If the view receives another HTTP method out of the ones listed
           above, return a `400` response.
 
-        * If submited payload is nos JSON valid, return a `400` response.
+        * If submited payload is not JSON valid, return a `400` response.
     """
-    pass
+    # Test for valid JSON and type check
+    if request.body:
+        try:
+            payload = json.loads(request.body)
+            if (not isinstance(payload['height'], int) or not isinstance(payload['mass'], int) 
+                or not isinstance(payload['homeworld'], int)):
+                return JsonResponse({"msg": "Provided payload is not valid", "success": False}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({'msg': 'Provide a valid JSON payload', 'success': False}, status=400)
+
+    # GET will return a list of all people and POST will create a new person
+    # All other methods are forbidden
+    if (request.method == 'GET'):
+        people = [serialize_people_as_json(person) for person in People.objects.all()]
+        return JsonResponse(people, safe=False)
+    elif (request.method == 'POST'):
+        new_person = People({
+        'name': payload['name'],
+        'homeworld': 'http://localhost:8000/planets/{}/'.format(payload['homeworld']),
+        'height': payload['height'],
+        'mass': payload['mass'],
+        'hair_color': payload['hair_color']
+        })
+        new_person.save()
+    else:
+        return JsonResponse({'msg': 'Invalid HTTP method', 'success': False}, status=400)
 
 
 @csrf_exempt
@@ -59,4 +84,12 @@ def people_detail_view(request, people_id):
 
         * If submited payload is nos JSON valid, return a `400` response.
     """
-    pass
+    # Test for valid JSON and type check
+    if request.body:
+        try:
+            payload = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({'msg': 'Provide a valid JSON payload', 'success': False}, status=400)
+        if (not isinstance(payload['height'], int) or not isinstance(payload['mass'], int) 
+            or not isinstance(payload['homeworld'], int)):
+            return JsonResponse({"msg": "Provided payload is not valid", "success": False}, status=400)
