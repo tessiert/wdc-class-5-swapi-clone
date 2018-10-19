@@ -51,12 +51,20 @@ def people_list_view(request):
         people = [serialize_people_as_json(person) for person in People.objects.all()]
         return JsonResponse(people, safe=False)
     elif (request.method == 'POST'):
+        homeworld_id = payload['homeworld']
+        try:
+            homeworld = Planet.objects.get(id=homeworld_id)
+        except Planet.DoesNotExist:
+            return JsonResponse({
+                "success": False,
+                "msg": "Could not find planet with id: {}".format(homeworld_id)
+            }, status=404)
         new_person = People({
-        'name': payload['name'],
-        'homeworld': 'http://localhost:8000/planets/{}/'.format(payload['homeworld']),
-        'height': payload['height'],
-        'mass': payload['mass'],
-        'hair_color': payload['hair_color']
+            'name': payload['name'],
+            'homeworld': 'http://localhost:8000/planets/{}/'.format(payload['homeworld']),
+            'height': payload['height'],
+            'mass': payload['mass'],
+            'hair_color': payload['hair_color']
         })
         new_person.save()
     else:
@@ -93,3 +101,28 @@ def people_detail_view(request, people_id):
         if (not isinstance(payload['height'], int) or not isinstance(payload['mass'], int) 
             or not isinstance(payload['homeworld'], int)):
             return JsonResponse({"msg": "Provided payload is not valid", "success": False}, status=400)
+
+    # Find the specified person, or return an error if not found
+    try:
+        queried_person = People.objects.get(id=people_id)
+        json_person = serialize_people_as_json(queried_person)
+    except People.DoesNotExist:
+        return JsonResponse({"msg": "Requested person not found", "success": False}, status=404)
+
+    # Process the HTTP request
+    if (request.method == 'GET'):
+        return JsonResponse(json_person, safe=False)
+    elif (request.method in ['PUT', 'PATCH']):
+        for field in payload:
+            json_person.field = payload['field']
+        json_person.save()
+    elif (request.method == 'DELETE'):
+        delete_response = queried_person.delete()
+        if delete_response[0] > 0:
+            return JsonResponse({'success': True}, status=200)
+        else:
+            return JsonResponse({'Delete Failed': 'Unknown error'}, status=500)
+    else:
+        return JsonResponse({'msg': 'Invalid HTTP method', 'success': False}, status=400)
+
+
