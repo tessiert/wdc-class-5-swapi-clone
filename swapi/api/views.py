@@ -110,12 +110,19 @@ def people_detail_view(request, people_id):
     if (request.method == 'GET'):
         return JsonResponse(json_person, safe=False)
     elif (request.method in ['PUT', 'PATCH']):
-        for field in payload.keys():
-            if field == 'homeworld':
+        for field in People._meta.get_fields(): # payload.keys():
+            if (field.name == 'created' or field.name =='id'):  # Not user-defined fields
+                continue
+            if (field.name not in payload.keys()):  # Error if fields are missing for PUT, ok for PATCH
+                if request.method == 'PATCH':
+                    continue
+                else:
+                    return JsonResponse({'msg': 'Missing field in full update', 'success': False}, status=400)
+            if field.name == 'homeworld':
                 homeworld_id = payload['homeworld']
                 try:
                     homeworld = Planet.objects.get(id=homeworld_id)
-                    setattr(queried_person, field, homeworld)
+                    setattr(queried_person, field.name, homeworld)
                     queried_person.save()
                 except Planet.DoesNotExist:
                     return JsonResponse({
@@ -124,7 +131,7 @@ def people_detail_view(request, people_id):
                     }, status=404)
             else:
                 try:
-                    setattr(queried_person, field, payload[field])
+                    setattr(queried_person, field.name, payload[field.name])
                     queried_person.save()
                 except (TypeError, ValueError, KeyError):
                     return JsonResponse({"success": False, "msg": "Provided payload is not valid"}, status=400)
